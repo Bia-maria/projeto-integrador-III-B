@@ -9,6 +9,7 @@ import cursos from './routes/cursos'
 import progresso from './routes/progresso'
 import certificados from './routes/certificados'
 import dashboard from './routes/dashboard'
+import uploads from './routes/uploads'
 
 const app = new Hono<{ Bindings: Env }>()
 
@@ -16,7 +17,7 @@ const app = new Hono<{ Bindings: Env }>()
 app.use('*', logger())
 app.use('/api/*', cors({
   origin: '*',
-  allowHeaders: ['Authorization', 'Content-Type'],
+  allowHeaders: ['Authorization', 'Content-Type', 'Accept'],
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 }))
 
@@ -76,6 +77,16 @@ app.use('/api/*', async (c, next) => {
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         UNIQUE(user_id, curso_id)
       )`),
+      c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS arquivos (
+        id TEXT PRIMARY KEY,
+        nome TEXT NOT NULL,
+        tipo TEXT NOT NULL,
+        mime_type TEXT,
+        tamanho INTEGER NOT NULL DEFAULT 0,
+        data_base64 TEXT NOT NULL,
+        enviado_por TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`),
     ]);
   } catch {
     // Tables may already exist
@@ -125,7 +136,8 @@ app.route('/api/usuarios', usuarios);
 app.route('/api/cursos', cursos);
 app.route('/api/progresso', progresso);
 app.route('/api/certificados', certificados);
-app.route('/api/dashboard', dashboard);
+app.route('/api/dashboard', dashboard)
+app.route('/api/uploads', uploads);
 
 // Health check
 app.get('/api/health', (c) => c.json({ status: 'ok', time: new Date().toISOString() }));

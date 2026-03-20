@@ -219,13 +219,13 @@ function renderLogin() {
           <form id="login-form" class="space-y-4">
             <div>
               <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wide">Email</label>
-              <input type="email" id="login-email" placeholder="seu@email.com" value="admin@hrd.com"
+              <input type="email" id="login-email" placeholder="seu@email.com"
                 class="w-full bg-slate-800/80 border border-slate-600 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition" />
             </div>
             <div>
               <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wide">Senha</label>
               <div class="relative">
-                <input type="password" id="login-senha" placeholder="••••••••" value="admin123"
+                <input type="password" id="login-senha" placeholder="••••••••"
                   class="w-full bg-slate-800/80 border border-slate-600 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition pr-10" />
                 <button type="button" onclick="togglePass()" class="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300">
                   <i class="fas fa-eye text-sm" id="pass-icon"></i>
@@ -239,18 +239,9 @@ function renderLogin() {
             </button>
           </form>
           
-          <div class="mt-6 pt-5 border-t border-slate-700/50">
-            <p class="text-xs text-slate-500 text-center mb-3">Contas de demonstração</p>
-            <div class="grid grid-cols-3 gap-2">
-              ${[['admin@hrd.com','admin123','Admin'],['rh@hrd.com','rh123456','Gestor RH'],['joao@hrd.com','colab123','Colaborador']].map(([e,s,l]) => `
-                <button onclick="fillLogin('${e}','${s}')" class="bg-slate-800 hover:bg-slate-700 rounded-lg px-2 py-2 text-xs text-slate-400 hover:text-white transition text-center">
-                  <div class="font-medium">${l}</div>
-                </button>
-              `).join('')}
-            </div>
-          </div>
+
         </div>
-        <p class="text-center text-xs text-slate-600 mt-4">© 2024 HRD Consultoria. Todos os direitos reservados.</p>
+        <p class="text-center text-xs text-slate-600 mt-4">© 2026 HRD Consultoria. Todos os direitos reservados.</p>
       </div>
     </div>
   `;
@@ -973,6 +964,14 @@ function renderListaAulas(aulas, cursoId) {
   const tipoIcons = { pdf: 'fa-file-pdf text-red-400', video: 'fa-video text-blue-400', youtube: 'fa-brands fa-youtube text-red-500', texto: 'fa-align-left text-green-400' };
   const tipoLabels = { pdf: 'PDF', video: 'Vídeo', youtube: 'YouTube', texto: 'Texto' };
   
+  // Detectar se é arquivo enviado (URL interna)
+  function getTipoDisplay(aula) {
+    if ((aula.tipo === 'pdf' || aula.tipo === 'video') && aula.url_ou_arquivo?.startsWith('/api/uploads/')) {
+      return aula.tipo === 'pdf' ? 'PDF (upload)' : 'Vídeo (upload)';
+    }
+    return tipoLabels[aula.tipo] || aula.tipo;
+  }
+  
   return aulas.map((a, i) => `
     <div class="bg-primary-light rounded-xl border border-slate-700/50 p-4 flex items-center gap-4">
       <div class="w-8 h-8 rounded-lg bg-slate-700/60 flex items-center justify-center text-slate-400 font-semibold text-sm flex-shrink-0">
@@ -982,7 +981,7 @@ function renderListaAulas(aulas, cursoId) {
         <i class="fas ${tipoIcons[a.tipo]} text-base flex-shrink-0"></i>
         <div class="min-w-0">
           <div class="font-medium text-white text-sm truncate">${a.titulo}</div>
-          <div class="text-xs text-slate-500">${tipoLabels[a.tipo]}${a.descricao ? ' · ' + a.descricao.substring(0, 60) : ''}</div>
+          <div class="text-xs text-slate-500">${getTipoDisplay(a)}${a.descricao ? ' · ' + a.descricao.substring(0, 60) : ''}</div>
         </div>
       </div>
       <div class="flex gap-2 flex-shrink-0">
@@ -1022,20 +1021,73 @@ function modalAulaHTML() {
               <option value="youtube">YouTube (Link)</option>
               <option value="video">Vídeo (URL direta)</option>
               <option value="pdf">PDF (URL)</option>
+              <option value="pdf_upload">PDF (Upload de arquivo)</option>
+              <option value="video_upload">Vídeo (Upload de arquivo)</option>
               <option value="texto">Texto / Material</option>
             </select>
           </div>
+
+          <!-- Campo URL externa -->
           <div id="campo-url">
             <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wide">URL do Conteúdo</label>
             <input type="url" id="aula-url" placeholder="https://youtube.com/watch?v=..."
               class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500" />
             <p class="text-xs text-slate-500 mt-1" id="url-hint">Cole o link do vídeo do YouTube</p>
           </div>
+
+          <!-- Campo Upload -->
+          <div id="campo-upload" class="hidden">
+            <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wide">Arquivo</label>
+            <!-- Drop zone -->
+            <div id="upload-dropzone"
+              class="border-2 border-dashed border-slate-600 rounded-xl p-6 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-500/5 transition-all"
+              onclick="document.getElementById('aula-arquivo-input').click()"
+              ondragover="event.preventDefault();this.classList.add('drag-over')"
+              ondragleave="this.classList.remove('drag-over')"
+              ondrop="handleAulaFileDrop(event)">
+              <i class="fas fa-cloud-upload-alt text-3xl text-slate-500 mb-2" id="upload-icon"></i>
+              <p class="text-sm text-slate-400" id="upload-label">Clique ou arraste o arquivo aqui</p>
+              <p class="text-xs text-slate-600 mt-1" id="upload-hint-type">PDF até 8 MB</p>
+            </div>
+            <input type="file" id="aula-arquivo-input" class="hidden" onchange="handleAulaFileChange(event)" />
+            <!-- Preview do arquivo selecionado -->
+            <div id="upload-preview" class="hidden mt-2 p-3 bg-slate-800 rounded-lg border border-slate-700 flex items-center gap-3">
+              <i class="fas fa-file text-blue-400 text-lg flex-shrink-0" id="upload-preview-icon"></i>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm text-white truncate" id="upload-preview-name"></div>
+                <div class="text-xs text-slate-500" id="upload-preview-size"></div>
+              </div>
+              <button type="button" onclick="limparUploadAula()" class="text-slate-500 hover:text-red-400 transition">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            <!-- Arquivo já salvo (edição) -->
+            <div id="upload-salvo" class="hidden mt-2 p-3 bg-emerald-900/20 rounded-lg border border-emerald-700/40 flex items-center gap-3">
+              <i class="fas fa-check-circle text-emerald-400 flex-shrink-0"></i>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs text-emerald-300" id="upload-salvo-nome"></div>
+                <div class="text-xs text-slate-500">Arquivo já enviado. Selecione um novo para substituir.</div>
+              </div>
+            </div>
+            <!-- Barra de progresso do upload -->
+            <div id="upload-progress-wrap" class="hidden mt-2">
+              <div class="flex justify-between text-xs text-slate-400 mb-1">
+                <span>Enviando arquivo...</span>
+                <span id="upload-pct">0%</span>
+              </div>
+              <div class="w-full bg-slate-700 rounded-full h-1.5">
+                <div id="upload-progress-bar" class="bg-blue-500 h-1.5 rounded-full transition-all" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Campo Texto -->
           <div id="campo-texto" class="hidden">
             <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wide">Conteúdo</label>
             <textarea id="aula-conteudo" rows="6" placeholder="Digite o conteúdo da aula aqui..."
               class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-blue-500 resize-y"></textarea>
           </div>
+
           <div>
             <label class="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-wide">Descrição (opcional)</label>
             <input type="text" id="aula-descricao" placeholder="Breve descrição da aula"
@@ -1044,7 +1096,7 @@ function modalAulaHTML() {
           <div class="flex gap-3 pt-2">
             <button type="button" onclick="fecharModalAula()"
               class="flex-1 py-2.5 rounded-lg border border-slate-600 text-slate-400 hover:text-white text-sm transition">Cancelar</button>
-            <button type="submit"
+            <button type="submit" id="btn-salvar-aula"
               class="btn-primary flex-1 py-2.5 rounded-lg text-white font-medium text-sm flex items-center justify-center gap-2">
               <i class="fas fa-save"></i> Salvar Aula
             </button>
@@ -1055,56 +1107,227 @@ function modalAulaHTML() {
   `;
 }
 
+// Estado de upload da aula atual
+let _aulaArquivoPendente = null; // File object
+let _aulaArquivoUploadId = null; // ID do arquivo já enviado (ao editar)
+
 window.atualizarCamposAula = () => {
   const tipo = document.getElementById('aula-tipo')?.value;
-  const campoUrl = document.getElementById('campo-url');
-  const campoTexto = document.getElementById('campo-texto');
-  const urlHint = document.getElementById('url-hint');
-  const aulaUrl = document.getElementById('aula-url');
-  
+  const campoUrl    = document.getElementById('campo-url');
+  const campoUpload = document.getElementById('campo-upload');
+  const campoTexto  = document.getElementById('campo-texto');
+  const urlHint     = document.getElementById('url-hint');
+  const aulaUrl     = document.getElementById('aula-url');
+  const uploadHintType = document.getElementById('upload-hint-type');
+  const uploadIcon  = document.getElementById('upload-icon');
+  const uploadLabel = document.getElementById('upload-label');
+  const aulaInput   = document.getElementById('aula-arquivo-input');
+
+  campoUrl?.classList.add('hidden');
+  campoUpload?.classList.add('hidden');
+  campoTexto?.classList.add('hidden');
+
   if (tipo === 'texto') {
-    campoUrl?.classList.add('hidden');
     campoTexto?.classList.remove('hidden');
+  } else if (tipo === 'pdf_upload') {
+    campoUpload?.classList.remove('hidden');
+    if (uploadHintType) uploadHintType.textContent = 'PDF até 8 MB';
+    if (uploadIcon) uploadIcon.className = 'fas fa-file-pdf text-3xl text-red-400 mb-2';
+    if (uploadLabel) uploadLabel.textContent = 'Clique ou arraste o arquivo PDF';
+    if (aulaInput) { aulaInput.accept = 'application/pdf'; }
+  } else if (tipo === 'video_upload') {
+    campoUpload?.classList.remove('hidden');
+    if (uploadHintType) uploadHintType.textContent = 'MP4, WebM, MOV até 8 MB';
+    if (uploadIcon) uploadIcon.className = 'fas fa-file-video text-3xl text-blue-400 mb-2';
+    if (uploadLabel) uploadLabel.textContent = 'Clique ou arraste o arquivo de vídeo';
+    if (aulaInput) { aulaInput.accept = 'video/*'; }
   } else {
     campoUrl?.classList.remove('hidden');
-    campoTexto?.classList.add('hidden');
     if (tipo === 'youtube') { aulaUrl.placeholder = 'https://youtube.com/watch?v=...'; urlHint.textContent = 'Cole o link do YouTube'; }
-    else if (tipo === 'pdf') { aulaUrl.placeholder = 'https://...'; urlHint.textContent = 'URL do arquivo PDF'; }
-    else { aulaUrl.placeholder = 'https://...'; urlHint.textContent = 'URL direta do vídeo (MP4 etc.)'; }
+    else if (tipo === 'pdf') { aulaUrl.placeholder = 'https://...'; urlHint.textContent = 'URL direta do arquivo PDF'; }
+    else { aulaUrl.placeholder = 'https://...'; urlHint.textContent = 'URL direta do vídeo (MP4, WebM etc.)'; }
   }
 };
 
+window.handleAulaFileChange = (event) => {
+  const file = event.target.files?.[0];
+  if (file) mostrarPreviewArquivoAula(file);
+};
+
+window.handleAulaFileDrop = (event) => {
+  event.preventDefault();
+  document.getElementById('upload-dropzone')?.classList.remove('drag-over');
+  const file = event.dataTransfer.files?.[0];
+  if (file) {
+    mostrarPreviewArquivoAula(file);
+    // atribuir ao input
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    document.getElementById('aula-arquivo-input').files = dt.files;
+  }
+};
+
+function mostrarPreviewArquivoAula(file) {
+  _aulaArquivoPendente = file;
+  const preview = document.getElementById('upload-preview');
+  const nome    = document.getElementById('upload-preview-name');
+  const size    = document.getElementById('upload-preview-size');
+  const icon    = document.getElementById('upload-preview-icon');
+  const drop    = document.getElementById('upload-dropzone');
+
+  const sizeStr = file.size > 1024*1024
+    ? `${(file.size/1024/1024).toFixed(1)} MB`
+    : `${(file.size/1024).toFixed(0)} KB`;
+
+  if (nome) nome.textContent = file.name;
+  if (size) size.textContent = sizeStr;
+  if (icon) icon.className = file.type.includes('pdf')
+    ? 'fas fa-file-pdf text-red-400 text-lg flex-shrink-0'
+    : 'fas fa-file-video text-blue-400 text-lg flex-shrink-0';
+
+  preview?.classList.remove('hidden');
+  drop?.classList.add('hidden');
+}
+
+window.limparUploadAula = () => {
+  _aulaArquivoPendente = null;
+  document.getElementById('upload-preview')?.classList.add('hidden');
+  document.getElementById('upload-dropzone')?.classList.remove('hidden');
+  const inp = document.getElementById('aula-arquivo-input');
+  if (inp) inp.value = '';
+};
+
+async function fazerUploadArquivo(file, tipo) {
+  return new Promise(async (resolve, reject) => {
+    const progressWrap = document.getElementById('upload-progress-wrap');
+    const pctEl = document.getElementById('upload-pct');
+    const barEl = document.getElementById('upload-progress-bar');
+    const btnSalvar = document.getElementById('btn-salvar-aula');
+
+    progressWrap?.classList.remove('hidden');
+    if (btnSalvar) { btnSalvar.disabled = true; btnSalvar.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...'; }
+
+    // Simular progresso visual enquanto faz o upload real
+    let pct = 0;
+    const interval = setInterval(() => {
+      pct = Math.min(pct + Math.random() * 12, 85);
+      if (pctEl) pctEl.textContent = Math.round(pct) + '%';
+      if (barEl) barEl.style.width = pct + '%';
+    }, 200);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('tipo', tipo === 'pdf_upload' ? 'pdf' : 'video');
+
+      const res = await fetch('/api/uploads', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${authToken}` },
+        body: formData
+      });
+
+      clearInterval(interval);
+      if (pctEl) pctEl.textContent = '100%';
+      if (barEl) barEl.style.width = '100%';
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro no upload');
+
+      setTimeout(() => { progressWrap?.classList.add('hidden'); }, 500);
+      if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerHTML = '<i class="fas fa-save"></i> Salvar Aula'; }
+      resolve(data);
+    } catch (err) {
+      clearInterval(interval);
+      progressWrap?.classList.add('hidden');
+      if (btnSalvar) { btnSalvar.disabled = false; btnSalvar.innerHTML = '<i class="fas fa-save"></i> Salvar Aula'; }
+      reject(err);
+    }
+  });
+}
+
 window.openModalAula = (cursoId, aula = null) => {
+  _aulaArquivoPendente = null;
+  _aulaArquivoUploadId = null;
+
   document.getElementById('modal-aula-titulo').textContent = aula ? 'Editar Aula' : 'Nova Aula';
   document.getElementById('aula-id').value = aula?.id || '';
   document.getElementById('aula-curso-id').value = cursoId;
   document.getElementById('aula-titulo').value = aula?.titulo || '';
-  document.getElementById('aula-tipo').value = aula?.tipo || 'youtube';
-  document.getElementById('aula-url').value = aula?.url_ou_arquivo || '';
-  document.getElementById('aula-conteudo').value = aula?.conteudo_texto || '';
   document.getElementById('aula-descricao').value = aula?.descricao || '';
+  document.getElementById('aula-conteudo').value = aula?.conteudo_texto || '';
+  document.getElementById('upload-preview')?.classList.add('hidden');
+  document.getElementById('upload-dropzone')?.classList.remove('hidden');
+  document.getElementById('upload-progress-wrap')?.classList.add('hidden');
+
+  // Detectar tipo do arquivo já salvo
+  let tipoVal = aula?.tipo || 'youtube';
+  const urlSalva = aula?.url_ou_arquivo || '';
+
+  if (aula && (aula.tipo === 'pdf' || aula.tipo === 'video') && urlSalva.startsWith('/api/uploads/')) {
+    tipoVal = aula.tipo === 'pdf' ? 'pdf_upload' : 'video_upload';
+    _aulaArquivoUploadId = urlSalva.replace('/api/uploads/', '');
+    const salvoEl = document.getElementById('upload-salvo');
+    const salvoNome = document.getElementById('upload-salvo-nome');
+    if (salvoEl) salvoEl.classList.remove('hidden');
+    if (salvoNome) salvoNome.textContent = `Arquivo salvo: ${aula.descricao || urlSalva}`;
+  } else {
+    document.getElementById('upload-salvo')?.classList.add('hidden');
+    document.getElementById('aula-url').value = urlSalva;
+  }
+
+  document.getElementById('aula-tipo').value = tipoVal;
   atualizarCamposAula();
   document.getElementById('modal-aula').classList.remove('hidden');
-  
+
   document.getElementById('form-aula').onsubmit = async (e) => {
     e.preventDefault();
-    const id = document.getElementById('aula-id').value;
-    const cId = document.getElementById('aula-curso-id').value;
-    const tipo = document.getElementById('aula-tipo').value;
-    const body = {
-      titulo: document.getElementById('aula-titulo').value,
-      tipo,
-      url_ou_arquivo: tipo !== 'texto' ? document.getElementById('aula-url').value : null,
-      conteudo_texto: tipo === 'texto' ? document.getElementById('aula-conteudo').value : null,
-      descricao: document.getElementById('aula-descricao').value || null,
-    };
+    const id    = document.getElementById('aula-id').value;
+    const cId   = document.getElementById('aula-curso-id').value;
+    const tipo  = document.getElementById('aula-tipo').value;
+
+    let urlOuArquivo = null;
+    let tipoFinal = tipo;
+    let conteudoTexto = null;
+
     try {
+      if (tipo === 'pdf_upload' || tipo === 'video_upload') {
+        tipoFinal = tipo === 'pdf_upload' ? 'pdf' : 'video';
+        if (_aulaArquivoPendente) {
+          // Fazer upload do arquivo novo
+          const uploaded = await fazerUploadArquivo(_aulaArquivoPendente, tipo);
+          urlOuArquivo = `/api/uploads/${uploaded.id}`;
+        } else if (_aulaArquivoUploadId) {
+          // Manter arquivo existente
+          urlOuArquivo = `/api/uploads/${_aulaArquivoUploadId}`;
+        } else {
+          notify('Selecione um arquivo para fazer o upload', 'warning');
+          return;
+        }
+      } else if (tipo === 'texto') {
+        conteudoTexto = document.getElementById('aula-conteudo').value;
+        tipoFinal = 'texto';
+      } else {
+        urlOuArquivo = document.getElementById('aula-url').value;
+        tipoFinal = tipo;
+      }
+
+      const body = {
+        titulo: document.getElementById('aula-titulo').value,
+        tipo: tipoFinal,
+        url_ou_arquivo: urlOuArquivo,
+        conteudo_texto: conteudoTexto,
+        descricao: document.getElementById('aula-descricao').value || null,
+      };
+
       if (id) await request(`/cursos/${cId}/aulas/${id}`, { method: 'PUT', body: JSON.stringify(body) });
       else await request(`/cursos/${cId}/aulas`, { method: 'POST', body: JSON.stringify(body) });
+
       notify(id ? 'Aula atualizada!' : 'Aula criada!');
       fecharModalAula();
       abrirEditorCurso(cId);
-    } catch (e) { notify(e.message, 'error'); }
+    } catch (err) {
+      notify(err.message, 'error');
+    }
   };
 };
 
@@ -1553,19 +1776,19 @@ async function renderCertificados() {
       
       <!-- Modal Certificado -->
       <div id="modal-cert" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-overlay bg-black/70">
-        <div class="bg-white rounded-2xl w-full max-w-2xl mx-4 shadow-2xl overflow-hidden">
+        <div class="bg-white rounded-2xl w-full mx-4 shadow-2xl overflow-hidden" style="max-width:870px">
           <div class="flex items-center justify-between p-4 bg-slate-100 border-b">
             <h3 class="font-semibold text-slate-800">Certificado de Conclusão</h3>
             <div class="flex gap-2">
               <button onclick="imprimirCertificado()" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm flex items-center gap-2">
-                <i class="fas fa-download"></i> Imprimir/PDF
+                <i class="fas fa-print"></i> Imprimir / Salvar PDF
               </button>
               <button onclick="document.getElementById('modal-cert').classList.add('hidden')" class="text-slate-500 hover:text-slate-800 px-2">
                 <i class="fas fa-times"></i>
               </button>
             </div>
           </div>
-          <div id="cert-content" class="p-6 bg-white"></div>
+          <div id="cert-content" class="overflow-auto bg-gray-200 p-4" style="max-height:82vh;"></div>
         </div>
       </div>
     `;
@@ -1576,51 +1799,112 @@ window.visualizarCertificado = async (id) => {
   try {
     const data = await request(`/certificados/${id}`);
     const c = data.certificado;
+    const dataFormatada = new Date(c.data_emissao).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
     
     document.getElementById('cert-content').innerHTML = `
-      <div id="certificado-pdf" class="cert-preview p-8 bg-white border-4 border-double border-amber-400 rounded-xl mx-auto" style="max-width:600px">
-        <!-- Cabeçalho -->
-        <div class="text-center mb-6 pb-4 border-b-2 border-amber-200">
-          <div class="flex items-center justify-center gap-3 mb-3">
-            ${logoSVG(48)}
-            <div class="text-left">
-              <div class="text-2xl font-bold text-slate-800" style="font-family:Georgia,serif">HRD Consultoria</div>
-              <div class="text-sm text-slate-500">Treinamento & Desenvolvimento</div>
+      <div id="certificado-pdf" style="
+        width:210mm; min-height:297mm; margin:0 auto;
+        background:#fff; position:relative; overflow:hidden;
+        font-family:'Times New Roman',Georgia,serif; color:#1a1a2e;
+        box-sizing:border-box; padding:18mm 18mm 16mm 18mm;
+        display:flex; flex-direction:column; justify-content:space-between;
+      ">
+        <!-- Bordas decorativas externas -->
+        <div style="position:absolute;inset:8mm;border:2px solid #B8860B;pointer-events:none;"></div>
+        <div style="position:absolute;inset:10.5mm;border:0.5px solid #D4AF37;pointer-events:none;"></div>
+
+        <!-- Ornamentos de canto -->
+        <svg style="position:absolute;top:7mm;left:7mm;width:14mm;height:14mm;opacity:.7" viewBox="0 0 50 50">
+          <path d="M2 2 L20 2 L2 20 Z" fill="none" stroke="#B8860B" stroke-width="1.5"/>
+          <path d="M2 2 L8 2 L2 8 Z" fill="#D4AF37"/>
+        </svg>
+        <svg style="position:absolute;top:7mm;right:7mm;width:14mm;height:14mm;opacity:.7;transform:scaleX(-1)" viewBox="0 0 50 50">
+          <path d="M2 2 L20 2 L2 20 Z" fill="none" stroke="#B8860B" stroke-width="1.5"/>
+          <path d="M2 2 L8 2 L2 8 Z" fill="#D4AF37"/>
+        </svg>
+        <svg style="position:absolute;bottom:7mm;left:7mm;width:14mm;height:14mm;opacity:.7;transform:scaleY(-1)" viewBox="0 0 50 50">
+          <path d="M2 2 L20 2 L2 20 Z" fill="none" stroke="#B8860B" stroke-width="1.5"/>
+          <path d="M2 2 L8 2 L2 8 Z" fill="#D4AF37"/>
+        </svg>
+        <svg style="position:absolute;bottom:7mm;right:7mm;width:14mm;height:14mm;opacity:.7;transform:scale(-1)" viewBox="0 0 50 50">
+          <path d="M2 2 L20 2 L2 20 Z" fill="none" stroke="#B8860B" stroke-width="1.5"/>
+          <path d="M2 2 L8 2 L2 8 Z" fill="#D4AF37"/>
+        </svg>
+
+        <!-- CABEÇALHO -->
+        <div style="text-align:center; padding-bottom:7mm; border-bottom:1.5px solid #D4AF37; position:relative; z-index:1;">
+          <!-- Logo + Nome -->
+          <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:6mm;">
+            <svg width="52" height="52" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="40" height="40" rx="8" fill="url(#cg)"/>
+              <defs><linearGradient id="cg" x1="0" y1="0" x2="40" y2="40">
+                <stop stop-color="#1a3a6b"/><stop offset="1" stop-color="#0F172A"/>
+              </linearGradient></defs>
+              <path d="M8 12h5v16H8V12zm5 7h8c2 0 3-1 3-2.5S23 14 21 14h-8v5zm8 1H13v7h8c2.5 0 4-1.2 4-3.5S23.5 20 21 20z" fill="white" opacity="0.9"/>
+            </svg>
+            <div style="text-align:left;">
+              <div style="font-size:22pt;font-weight:700;color:#0F172A;letter-spacing:1px;font-family:'Times New Roman',serif;">HRD Consultoria</div>
+              <div style="font-size:9pt;color:#64748b;letter-spacing:2px;font-family:Arial,sans-serif;text-transform:uppercase;">Treinamento &amp; Desenvolvimento</div>
             </div>
           </div>
-          <h1 class="text-3xl font-bold text-amber-600 tracking-wider uppercase" style="font-family:Georgia,serif">
-            CERTIFICADO
-          </h1>
-          <p class="text-slate-500 text-sm mt-1">DE CONCLUSÃO DE CURSO</p>
-        </div>
-        
-        <!-- Corpo -->
-        <div class="text-center my-6">
-          <p class="text-slate-600 text-base mb-4">Certificamos que</p>
-          <h2 class="text-3xl font-bold text-slate-800 mb-4 border-b-2 border-slate-200 pb-3 inline-block px-8" style="font-family:Georgia,serif">${c.usuario_nome}</h2>
-          <p class="text-slate-600 mb-2">concluiu com êxito o curso</p>
-          <h3 class="text-xl font-semibold text-slate-700 mb-4 mt-2" style="font-family:Georgia,serif">"${c.curso_titulo}"</h3>
-          <p class="text-slate-500 text-sm">com aproveitamento total do conteúdo programático</p>
-        </div>
-        
-        <!-- Data e assinatura -->
-        <div class="flex items-end justify-between mt-8 pt-5 border-t border-slate-200">
-          <div class="text-center">
-            <div class="w-32 border-b border-slate-400 mb-1"></div>
-            <div class="text-xs text-slate-500">Data de conclusão</div>
-            <div class="text-sm font-medium text-slate-700">${formatDate(c.data_emissao)}</div>
+          <!-- Separador ornamental -->
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:4mm;">
+            <div style="height:1px;width:60px;background:linear-gradient(to right,transparent,#B8860B);"></div>
+            <span style="color:#B8860B;font-size:14pt;">✦</span>
+            <div style="height:1px;width:120px;background:#B8860B;"></div>
+            <span style="color:#B8860B;font-size:14pt;">✦</span>
+            <div style="height:1px;width:60px;background:linear-gradient(to left,transparent,#B8860B);"></div>
           </div>
-          <div class="text-center">
-            <div class="text-3xl text-amber-500 mb-1">★</div>
-            <div class="text-xs font-mono text-slate-400 bg-slate-100 px-3 py-1 rounded">
-              ${c.codigo_validacao}
+          <div style="font-size:28pt;font-weight:700;color:#0F172A;letter-spacing:6px;text-transform:uppercase;font-family:'Times New Roman',serif;line-height:1.1;">CERTIFICADO</div>
+          <div style="font-size:10pt;color:#64748b;letter-spacing:3px;text-transform:uppercase;font-family:Arial,sans-serif;margin-top:2mm;">de Conclusão de Curso</div>
+        </div>
+
+        <!-- CORPO PRINCIPAL -->
+        <div style="flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center;padding:8mm 10mm;position:relative;z-index:1;">
+          <!-- Marca d'água sutil -->
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0.04;">
+            <span style="font-size:110pt;font-weight:900;color:#1a3a6b;transform:rotate(-30deg);white-space:nowrap;font-family:Arial;">HRD</span>
+          </div>
+          <p style="font-size:12pt;color:#475569;margin-bottom:6mm;font-style:italic;font-family:Arial,sans-serif;">Certificamos que</p>
+          <div style="margin-bottom:7mm;">
+            <div style="font-size:24pt;font-weight:700;color:#0F172A;font-family:'Times New Roman',serif;display:inline-block;padding:3mm 15mm;border-bottom:2px solid #B8860B;letter-spacing:0.5px;line-height:1.3;">${c.usuario_nome}</div>
+          </div>
+          <p style="font-size:12pt;color:#475569;margin-bottom:5mm;font-family:Arial,sans-serif;">concluiu com êxito e aproveitamento integral o curso</p>
+          <div style="background:linear-gradient(135deg,#f0f6ff,#e8f0fe);border:1px solid #B8860B33;border-radius:6px;padding:5mm 12mm;margin:0 auto 6mm;max-width:85%;">
+            <div style="font-size:16pt;font-weight:700;color:#1a3a6b;font-family:'Times New Roman',serif;line-height:1.35;">"${c.curso_titulo}"</div>
+          </div>
+          <p style="font-size:10pt;color:#64748b;font-family:Arial,sans-serif;font-style:italic;">tendo demonstrado total domínio do conteúdo programático e dos objetivos propostos</p>
+        </div>
+
+        <!-- RODAPÉ: DATA | CÓDIGO | ASSINATURA -->
+        <div style="border-top:1.5px solid #D4AF37;padding-top:6mm;position:relative;z-index:1;">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:10mm;">
+            <!-- Data -->
+            <div style="text-align:center;min-width:50mm;">
+              <div style="font-size:12pt;color:#0F172A;font-weight:600;font-family:'Times New Roman',serif;margin-bottom:1mm;">${dataFormatada}</div>
+              <div style="height:1px;background:#94a3b8;margin-bottom:2mm;"></div>
+              <div style="font-size:8pt;color:#64748b;letter-spacing:1px;text-transform:uppercase;font-family:Arial,sans-serif;">Data de Emissão</div>
             </div>
-            <div class="text-xs text-slate-400 mt-0.5">Código de validação</div>
-          </div>
-          <div class="text-center">
-            <div class="w-32 border-b border-slate-400 mb-1"></div>
-            <div class="text-xs text-slate-500">Diretor(a) de T&D</div>
-            <div class="text-sm font-medium text-slate-700" style="font-family:cursive">HRD Consultoria</div>
+
+            <!-- Código / Selo central -->
+            <div style="text-align:center;flex:1;">
+              <div style="display:inline-flex;flex-direction:column;align-items:center;gap:2mm;background:linear-gradient(135deg,#0F172A,#1a3a6b);border-radius:8px;padding:3mm 6mm;border:1px solid #D4AF37;">
+                <span style="color:#D4AF37;font-size:14pt;">★</span>
+                <span style="font-family:'Courier New',monospace;font-size:8pt;color:#D4AF37;letter-spacing:1.5px;">${c.codigo_validacao}</span>
+                <span style="font-size:7pt;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;font-family:Arial,sans-serif;">Código de Validação</span>
+              </div>
+            </div>
+
+            <!-- Assinatura Digital -->
+            <div style="text-align:center;min-width:55mm;">
+              <div style="font-size:17pt;color:#1a3a6b;font-family:'Brush Script MT',cursive,'Comic Sans MS',cursive;font-weight:400;line-height:1.2;margin-bottom:1mm;letter-spacing:1px;">Rhenaiza Sales</div>
+              <div style="height:1px;background:#94a3b8;margin-bottom:2mm;"></div>
+              <div style="font-size:8pt;color:#64748b;letter-spacing:0.5px;font-family:Arial,sans-serif;line-height:1.5;">
+                <strong style="color:#0F172A;">Rhenaiza Sales</strong><br>
+                Diretora de T&amp;D<br>
+                HRD Consultoria
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1633,22 +1917,35 @@ window.visualizarCertificado = async (id) => {
 window.imprimirCertificado = () => {
   const el = document.getElementById('certificado-pdf');
   const win = window.open('', '_blank');
-  win.document.write(`
-    <!DOCTYPE html><html><head>
-    <title>Certificado HRD</title>
-    <style>
-      * { box-sizing: border-box; }
-      body { margin: 0; padding: 20px; background: white; font-family: Georgia, serif; }
-      .cert { border: 4px double #F59E0B; border-radius: 12px; padding: 40px; max-width: 700px; margin: auto; }
-      .text-center { text-align: center; }
-      @media print { body { padding: 0; } .cert { border-radius: 0; max-width: 100%; } }
-    </style>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
-    </head><body>
-    ${el.outerHTML}
-    <script>window.onload = () => { window.print(); window.close(); }</script>
-    </body></html>
-  `);
+  win.document.write(`<!DOCTYPE html>
+<html lang="pt-BR"><head>
+<meta charset="UTF-8"/>
+<title>Certificado HRD — ${el.querySelector ? '' : ''}</title>
+<style>
+  @page { size: A4 portrait; margin: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 210mm; height: 297mm; background: #fff; }
+  body { display: flex; align-items: center; justify-content: center; }
+  #certificado-pdf {
+    width: 210mm !important;
+    min-height: 297mm !important;
+    max-width: 210mm !important;
+    padding: 18mm 18mm 16mm 18mm !important;
+    page-break-after: avoid;
+  }
+  @media print {
+    html, body { width: 210mm; height: 297mm; }
+    #certificado-pdf { margin: 0 !important; }
+  }
+</style>
+</head><body>
+${el.outerHTML}
+<script>
+  window.onload = function() {
+    setTimeout(function() { window.print(); }, 600);
+  };
+<\/script>
+</body></html>`);
   win.document.close();
 };
 
