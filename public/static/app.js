@@ -145,6 +145,7 @@ function renderApp() {
         <main id="page-content" class="flex-1 overflow-y-auto p-6 bg-surface/5 fade-in"></main>
       </div>
     </div>
+    ${modalAulaHTML()}
   `;
   
   renderSidebar();
@@ -750,7 +751,6 @@ async function renderCursos() {
       </div>
     </div>
     ${modalCursoHTML()}
-    ${modalAulaHTML()}
     ${modalMatriculaHTML()}
   `;
   
@@ -943,7 +943,7 @@ window.abrirEditorCurso = async (cursoId) => {
           ${renderListaAulas(aulas, cursoId)}
         </div>
       </div>
-      ${modalAulaHTML()}
+
     `;
     setPageTitle('Editor de Curso', curso.titulo);
   } catch (e) { notify(e.message, 'error'); }
@@ -1599,6 +1599,39 @@ window.selecionarAula = (cursoId, aulas, idx) => {
   exibirAula(cursoId, aulas, idx, progressoMapGlobal);
 };
 
+// Carrega arquivo de upload com autenticação e renderiza via Blob URL
+async function carregarArquivoUpload(url, tipo, containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  try {
+    const res = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    if (!res.ok) throw new Error(`Erro ao carregar arquivo (${res.status})`);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    if (tipo === 'pdf') {
+      container.innerHTML = `<iframe class="w-full rounded-t-xl" style="height:450px" src="${blobUrl}" frameborder="0"></iframe>`;
+    } else {
+      container.innerHTML = `
+        <video class="w-full h-full" style="min-height:400px" controls autoplay>
+          <source src="${blobUrl}" type="${blob.type}" />
+          Seu navegador não suporta vídeo.
+        </video>`;
+    }
+  } catch (err) {
+    container.innerHTML = `
+      <div class="flex flex-col items-center justify-center h-full text-slate-400 gap-3 p-8" style="min-height:200px">
+        <i class="fas fa-exclamation-circle text-3xl text-red-400"></i>
+        <p class="text-sm text-center">Erro ao carregar arquivo: ${err.message}</p>
+        <a href="${url}?token=${encodeURIComponent(authToken)}" target="_blank" 
+           class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition">
+          <i class="fas fa-external-link-alt mr-1"></i> Abrir em nova aba
+        </a>
+      </div>`;
+  }
+}
+
 function exibirAula(cursoId, aulas, idx, progressoMap) {
   progressoMapGlobal = progressoMap;
   const aula = aulas[idx];
@@ -1623,20 +1656,40 @@ function exibirAula(cursoId, aulas, idx, progressoMap) {
         </iframe>
       </div>`;
   } else if (aula.tipo === 'video') {
-    conteudo = `
-      <div class="flex-1 bg-black rounded-t-xl overflow-hidden min-h-0">
-        <video class="w-full h-full" style="min-height:400px" controls>
-          <source src="${aula.url_ou_arquivo}" />
-          Seu navegador não suporta vídeo.
-        </video>
-      </div>`;
+    const isUpload = aula.url_ou_arquivo?.startsWith('/api/uploads/');
+    if (isUpload) {
+      // Arquivo enviado: carregar com autenticação e criar Blob URL
+      conteudo = `
+        <div class="flex-1 bg-black rounded-t-xl overflow-hidden min-h-0 flex items-center justify-center" id="video-container-${aula.id}">
+          <div class="text-slate-400"><i class="fas fa-spinner fa-spin mr-2"></i>Carregando vídeo...</div>
+        </div>`;
+      setTimeout(() => carregarArquivoUpload(aula.url_ou_arquivo, 'video', `video-container-${aula.id}`), 100);
+    } else {
+      conteudo = `
+        <div class="flex-1 bg-black rounded-t-xl overflow-hidden min-h-0">
+          <video class="w-full h-full" style="min-height:400px" controls>
+            <source src="${aula.url_ou_arquivo}" />
+            Seu navegador não suporta vídeo.
+          </video>
+        </div>`;
+    }
   } else if (aula.tipo === 'pdf') {
-    conteudo = `
-      <div class="flex-1 min-h-0">
-        <iframe class="w-full rounded-t-xl" style="height:450px"
-          src="${aula.url_ou_arquivo}" frameborder="0">
-        </iframe>
-      </div>`;
+    const isUpload = aula.url_ou_arquivo?.startsWith('/api/uploads/');
+    if (isUpload) {
+      // PDF enviado: carregar com autenticação e criar Blob URL
+      conteudo = `
+        <div class="flex-1 min-h-0 flex items-center justify-center" style="min-height:450px" id="pdf-container-${aula.id}">
+          <div class="text-slate-400"><i class="fas fa-spinner fa-spin mr-2"></i>Carregando PDF...</div>
+        </div>`;
+      setTimeout(() => carregarArquivoUpload(aula.url_ou_arquivo, 'pdf', `pdf-container-${aula.id}`), 100);
+    } else {
+      conteudo = `
+        <div class="flex-1 min-h-0">
+          <iframe class="w-full rounded-t-xl" style="height:450px"
+            src="${aula.url_ou_arquivo}" frameborder="0">
+          </iframe>
+        </div>`;
+    }
   } else if (aula.tipo === 'texto') {
     conteudo = `
       <div class="flex-1 p-6 overflow-y-auto min-h-0" style="min-height:400px">

@@ -5,10 +5,11 @@ import { v4 as uuidv4 } from 'uuid';
 
 const uploads = new Hono<{ Bindings: Env; Variables: { user: any } }>();
 
-// Tabela de arquivos: armazena arquivo em base64 no D1 (para arquivos < 5MB)
-// Criar tabela de arquivos (feito no middleware de init do index.tsx)
+// Limite de tamanho por chunk (400KB em base64 ≈ ~300KB binário)
+const CHUNK_SIZE = 300 * 1024; // 300KB por chunk
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
-// Upload de arquivo (PDF ou vídeo pequeno) — armazenado como base64 no D1
+// Upload de arquivo (PDF ou vídeo) — armazenado em chunks no D1
 uploads.post('/', authMiddleware, requireRole('ADMIN', 'RH'), async (c) => {
   try {
     const formData = await c.req.formData();
@@ -18,10 +19,8 @@ uploads.post('/', authMiddleware, requireRole('ADMIN', 'RH'), async (c) => {
     if (!file) return c.json({ error: 'Arquivo não enviado' }, 400);
     if (!tipo || !['pdf', 'video'].includes(tipo)) return c.json({ error: 'Tipo inválido' }, 400);
 
-    // Limite: 8 MB
-    const maxBytes = 8 * 1024 * 1024;
-    if (file.size > maxBytes) {
-      return c.json({ error: `Arquivo muito grande. Limite: 8MB (atual: ${(file.size / 1024 / 1024).toFixed(1)}MB)` }, 400);
+    if (file.size > MAX_FILE_SIZE) {
+      return c.json({ error: `Arquivo muito grande. Limite: ${MAX_FILE_SIZE / 1024 / 1024}MB (atual: ${(file.size / 1024 / 1024).toFixed(1)}MB)` }, 400);
     }
 
     // Validar tipo MIME
@@ -33,35 +32,59 @@ uploads.post('/', authMiddleware, requireRole('ADMIN', 'RH'), async (c) => {
       return c.json({ error: `Tipo de arquivo não permitido: ${file.type}` }, 400);
     }
 
-    // Ler como ArrayBuffer e converter para base64
-    const buffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-    
-    // Converter para base64 em chunks para evitar stack overflow
-    let binary = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      const chunk = bytes.subarray(i, i + chunkSize);
-      binary += String.fromCharCode(...chunk);
-    }
-    const base64 = btoa(binary);
-    const dataUrl = `data:${file.type || (tipo === 'pdf' ? 'application/pdf' : 'video/mp4')};base64,${base64}`;
-
     const user = c.get('user');
     const id = uuidv4();
     const nomeArquivo = file.name || `arquivo_${Date.now()}`;
     const agora = new Date().toISOString();
+    const mimeType = file.type || (tipo === 'pdf' ? 'application/pdf' : 'video/mp4');
 
+    // Ler arquivo como ArrayBuffer
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    const totalBytes = bytes.length;
+    const totalChunks = Math.ceil(totalBytes / CHUNK_SIZE);
+
+    // Garantir que a tabela de chunks existe
     await c.env.DB.prepare(`
-      INSERT INTO arquivos (id, nome, tipo, mime_type, tamanho, data_base64, enviado_por, created_at)
+      CREATE TABLE IF NOT EXISTS arquivos_chunks (
+        id TEXT NOT NULL,
+        chunk_idx INTEGER NOT NULL,
+        data TEXT NOT NULL,
+        PRIMARY KEY (id, chunk_idx)
+      )
+    `).run();
+
+    // Salvar metadados do arquivo
+    await c.env.DB.prepare(`
+      INSERT INTO arquivos (id, nome, tipo, mime_type, tamanho, total_chunks, enviado_por, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).bind(id, nomeArquivo, tipo, file.type || '', file.size, dataUrl, user.sub, agora).run();
+    `).bind(id, nomeArquivo, tipo, mimeType, totalBytes, totalChunks, user.sub, agora).run();
+
+    // Salvar arquivo em chunks de 300KB
+    for (let chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
+      const start = chunkIdx * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, totalBytes);
+      const chunkBytes = bytes.subarray(start, end);
+
+      // Converter chunk para base64
+      let binary = '';
+      for (let i = 0; i < chunkBytes.length; i += 8192) {
+        const slice = chunkBytes.subarray(i, i + 8192);
+        binary += String.fromCharCode(...slice);
+      }
+      const chunkBase64 = btoa(binary);
+
+      await c.env.DB.prepare(`
+        INSERT INTO arquivos_chunks (id, chunk_idx, data) VALUES (?, ?, ?)
+      `).bind(id, chunkIdx, chunkBase64).run();
+    }
 
     return c.json({
       id,
       nome: nomeArquivo,
       tipo,
-      tamanho: file.size,
+      tamanho: totalBytes,
+      totalChunks,
       url: `/api/uploads/${id}`,
       created_at: agora
     }, 201);
@@ -71,39 +94,44 @@ uploads.post('/', authMiddleware, requireRole('ADMIN', 'RH'), async (c) => {
   }
 });
 
-// Servir arquivo por ID (data URL para incorporação direta no navegador)
+// Servir arquivo por ID (reassembla os chunks e envia)
 uploads.get('/:id', authMiddleware, async (c) => {
   const { id } = c.req.param();
 
   const arquivo = await c.env.DB.prepare(
     'SELECT * FROM arquivos WHERE id = ?'
-  ).bind(id).first<{ id: string; nome: string; tipo: string; mime_type: string; tamanho: number; data_base64: string }>();
+  ).bind(id).first<{ id: string; nome: string; tipo: string; mime_type: string; tamanho: number; total_chunks: number }>();
 
   if (!arquivo) return c.json({ error: 'Arquivo não encontrado' }, 404);
 
-  // Extrair base64 do data URL
-  const dataUrl = arquivo.data_base64;
-  const commaIdx = dataUrl.indexOf(',');
-  if (commaIdx === -1) return c.json({ error: 'Formato inválido' }, 500);
+  // Buscar todos os chunks em ordem
+  const result = await c.env.DB.prepare(
+    'SELECT data FROM arquivos_chunks WHERE id = ? ORDER BY chunk_idx ASC'
+  ).bind(id).all<{ data: string }>();
 
-  const base64Data = dataUrl.substring(commaIdx + 1);
-  const mimeType = arquivo.mime_type || (arquivo.tipo === 'pdf' ? 'application/pdf' : 'video/mp4');
+  if (!result.results || result.results.length === 0) {
+    return c.json({ error: 'Chunks não encontrados' }, 404);
+  }
 
-  // Decodificar base64
-  const binaryStr = atob(base64Data);
+  // Reassemblar os chunks
+  const allBase64 = result.results.map(r => r.data).join('');
+  
+  // Decodificar base64 concatenado
+  const binaryStr = atob(allBase64);
   const bytes = new Uint8Array(binaryStr.length);
   for (let i = 0; i < binaryStr.length; i++) {
     bytes[i] = binaryStr.charCodeAt(i);
   }
 
-  const disposition = arquivo.tipo === 'pdf' ? 'inline' : 'inline';
+  const mimeType = arquivo.mime_type || (arquivo.tipo === 'pdf' ? 'application/pdf' : 'video/mp4');
 
   return new Response(bytes.buffer, {
     headers: {
       'Content-Type': mimeType,
-      'Content-Disposition': `${disposition}; filename="${arquivo.nome}"`,
+      'Content-Disposition': `inline; filename="${arquivo.nome}"`,
       'Content-Length': String(arquivo.tamanho),
       'Cache-Control': 'public, max-age=3600',
+      'Accept-Ranges': 'bytes',
     }
   });
 });
@@ -111,7 +139,7 @@ uploads.get('/:id', authMiddleware, async (c) => {
 // Listar arquivos do usuário / todos (ADMIN+RH)
 uploads.get('/', authMiddleware, requireRole('ADMIN', 'RH'), async (c) => {
   const { tipo } = c.req.query();
-  let query = 'SELECT id, nome, tipo, mime_type, tamanho, enviado_por, created_at FROM arquivos WHERE 1=1';
+  let query = 'SELECT id, nome, tipo, mime_type, tamanho, total_chunks, enviado_por, created_at FROM arquivos WHERE 1=1';
   const params: any[] = [];
   if (tipo) { query += ' AND tipo = ?'; params.push(tipo); }
   query += ' ORDER BY created_at DESC LIMIT 50';
@@ -119,10 +147,13 @@ uploads.get('/', authMiddleware, requireRole('ADMIN', 'RH'), async (c) => {
   return c.json({ arquivos: result.results });
 });
 
-// Excluir arquivo
+// Excluir arquivo e seus chunks
 uploads.delete('/:id', authMiddleware, requireRole('ADMIN', 'RH'), async (c) => {
   const { id } = c.req.param();
-  await c.env.DB.prepare('DELETE FROM arquivos WHERE id = ?').bind(id).run();
+  await c.env.DB.batch([
+    c.env.DB.prepare('DELETE FROM arquivos WHERE id = ?').bind(id),
+    c.env.DB.prepare('DELETE FROM arquivos_chunks WHERE id = ?').bind(id),
+  ]);
   return c.json({ success: true });
 });
 

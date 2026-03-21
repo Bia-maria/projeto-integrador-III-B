@@ -83,9 +83,15 @@ app.use('/api/*', async (c, next) => {
         tipo TEXT NOT NULL,
         mime_type TEXT,
         tamanho INTEGER NOT NULL DEFAULT 0,
-        data_base64 TEXT NOT NULL,
+        total_chunks INTEGER NOT NULL DEFAULT 1,
         enviado_por TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )`),
+      c.env.DB.prepare(`CREATE TABLE IF NOT EXISTS arquivos_chunks (
+        id TEXT NOT NULL,
+        chunk_idx INTEGER NOT NULL,
+        data TEXT NOT NULL,
+        PRIMARY KEY (id, chunk_idx)
       )`),
     ]);
   } catch {

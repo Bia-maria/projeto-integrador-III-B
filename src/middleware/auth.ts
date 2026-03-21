@@ -9,7 +9,12 @@ type Variables = {
 export const authMiddleware = createMiddleware<{ Bindings: Env; Variables: Variables }>(
   async (c, next) => {
     const authHeader = c.req.header('Authorization');
-    const token = getTokenFromHeader(authHeader);
+    let token = getTokenFromHeader(authHeader);
+    
+    // Fallback: aceitar token via query parameter (para iframes e links diretos)
+    if (!token) {
+      token = c.req.query('token') || null;
+    }
     
     if (!token) {
       return c.json({ error: 'Token não fornecido' }, 401);
