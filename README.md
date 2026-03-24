@@ -1,43 +1,67 @@
-# HRD Consultoria T&D — Sistema de Treinamento e Certificados
+# HRD Consultoria T&D
 
-Plataforma web completa para gestão de treinamentos, cursos e emissão de certificados digitais.
-
----
-
-## 🚀 Como Rodar Localmente
-
-### Pré-requisito: instalar o Node.js
-
-Acesse **https://nodejs.org** e baixe a versão **LTS (18 ou superior)**.  
-Instale normalmente (avance em todas as telas).
+Sistema web de Treinamento e Desenvolvimento com gestão de cursos, aulas e emissão de certificados digitais.
 
 ---
 
-### ▶️ Windows
+## ⚡ Início Rápido
 
-1. Descompacte a pasta do projeto
-2. Dê **dois cliques** no arquivo `start.bat`
-3. Aguarde a mensagem `Sistema rodando em: http://localhost:3000`
-4. Abra o navegador em **http://localhost:3000**
+### Passo 1 — Instalar Node.js (só na primeira vez)
+
+Acesse **https://nodejs.org** → clique no botão verde **"LTS"** → instale normalmente.
+
+> ✅ Versão mínima: Node.js 18
+
+### Passo 2 — Iniciar o sistema
+
+| Sistema | O que fazer |
+|---------|-------------|
+| **Windows** | Clique duas vezes em `start.bat` |
+| **Mac** | Terminal na pasta → `chmod +x start.sh && ./start.sh` |
+| **Linux** | Terminal na pasta → `chmod +x start.sh && ./start.sh` |
+
+O script vai:
+1. Instalar dependências automaticamente (só na 1ª vez, ~1-2 min)
+2. Compilar o projeto
+3. Iniciar o servidor
+4. **Abrir o navegador automaticamente** em `http://localhost:3000`
+
+### Passo 3 — Fazer login
+
+| Perfil | E-mail | Senha |
+|--------|--------|-------|
+| Administrador | admin@hrd.com | admin123 |
+| Gestor RH | rh@hrd.com | rh123456 |
+| Colaborador | joao@hrd.com | colab123 |
 
 ---
 
-### ▶️ Mac / Linux
+## ❓ Resolução de Problemas
 
-1. Descompacte a pasta do projeto
-2. Abra o **Terminal** dentro da pasta do projeto
-3. Execute:
-   ```bash
-   chmod +x start.sh
-   ./start.sh
-   ```
-4. Abra o navegador em **http://localhost:3000**
+### "O navegador não abriu"
+Abra manualmente: **http://localhost:3000**
+
+### "node não é reconhecido" (Windows)
+Instale o Node.js em https://nodejs.org, **reinicie o computador** e tente novamente.
+
+### "Erro de compilação"
+Execute no terminal dentro da pasta:
+```
+npm install
+npm run build
+```
+
+### "Porta 3000 já está em uso"
+Feche outros programas que usam a porta 3000 ou altere a porta em `start.bat`/`start.sh` de `--port 3000` para `--port 3001` e acesse `http://localhost:3001`.
+
+### O servidor demora para iniciar?
+Normal! O wrangler leva **10-15 segundos** na primeira inicialização. O script aguarda automaticamente.
 
 ---
 
-### ▶️ Método manual (qualquer sistema)
+## 🔧 Comando manual (alternativa aos scripts)
 
-Abra o terminal/prompt na pasta do projeto e execute:
+Abra o terminal na pasta do projeto e execute:
 
 ```bash
 npm install
@@ -45,35 +69,24 @@ npm run build
 npx wrangler pages dev dist --d1=webapp-production --local --ip 0.0.0.0 --port 3000
 ```
 
----
-
-## 🔑 Contas de Acesso
-
-| Perfil       | E-mail             | Senha      |
-|--------------|--------------------|------------|
-| ADMIN        | admin@hrd.com      | admin123   |
-| Gestor RH    | rh@hrd.com         | rh123456   |
-| Colaborador  | joao@hrd.com       | colab123   |
+Aguarde a mensagem `Ready on http://0.0.0.0:3000` e acesse http://localhost:3000
 
 ---
 
 ## 📋 Funcionalidades
 
-| Etapa | Recurso                        | Perfis          |
-|-------|--------------------------------|-----------------|
-| 1     | Login com JWT + RBAC           | Todos           |
-| 2     | CRUD de Usuários               | ADMIN, RH       |
-| 3     | Gestão de Cursos e Aulas       | RH, ADMIN       |
-| 4     | Upload de PDF e Vídeo          | RH, ADMIN       |
-| 5     | Área do Colaborador            | COLABORADOR     |
-| 6     | Certificados automáticos A4    | Todos           |
+| Perfil | O que pode fazer |
+|--------|-----------------|
+| **ADMIN** | Gerenciar todos os usuários, cursos e visualizar certificados |
+| **Gestor RH** | Criar/editar cursos, fazer upload de PDFs e vídeos, matricular colaboradores |
+| **Colaborador** | Assistir aulas, marcar progresso, baixar certificados |
 
-### Tipos de conteúdo suportados nas aulas
-- 🔴 **YouTube** — cole o link do vídeo
-- 🎥 **Vídeo URL** — link direto para MP4/WebM
-- 📄 **PDF URL** — link direto para PDF online
-- 📤 **PDF Upload** — envie um arquivo PDF (até 50 MB)
-- 📤 **Vídeo Upload** — envie um arquivo de vídeo (até 50 MB)
+### Tipos de conteúdo nas aulas
+- 🔴 **YouTube** — cola o link do vídeo
+- 🎥 **Vídeo (URL)** — link direto MP4/WebM
+- 📄 **PDF (URL)** — link direto para PDF online  
+- 📤 **PDF Upload** — envia arquivo PDF (até 50 MB)
+- 📤 **Vídeo Upload** — envia arquivo de vídeo (até 50 MB)
 - 📝 **Texto** — conteúdo em texto livre
 
 ---
@@ -82,50 +95,28 @@ npx wrangler pages dev dist --d1=webapp-production --local --ip 0.0.0.0 --port 3
 
 ```
 hrd-consultoria/
-├── src/                  ← Código backend (Hono / TypeScript)
-│   ├── index.tsx         ← Ponto de entrada + criação do banco
-│   ├── routes/           ← Rotas da API
-│   └── utils/            ← JWT, criptografia
-├── public/static/        ← Frontend (HTML/CSS/JS)
-│   └── app.js            ← SPA completo
-├── dist/                 ← Build gerado (não editar)
-├── wrangler.jsonc        ← Configuração Cloudflare/Wrangler
-├── seed_export.sql       ← Backup do banco de dados
-├── start.bat             ← Iniciar no Windows
-├── start.sh              ← Iniciar no Mac/Linux
-└── package.json
+├── src/              ← Código backend (TypeScript + Hono)
+├── public/static/    ← Frontend (HTML/CSS/JS)
+│   └── app.js        ← Aplicação completa (SPA)
+├── migrations/       ← Estrutura do banco de dados
+├── wrangler.jsonc    ← Configurações do servidor local
+├── start.bat         ← Iniciar no Windows  ⬅ use este
+├── start.sh          ← Iniciar no Mac/Linux ⬅ use este
+└── package.json      ← Dependências do projeto
 ```
 
----
-
-## 🔧 Tecnologias
-
-- **Backend:** [Hono](https://hono.dev) + TypeScript rodando em Cloudflare Workers
-- **Frontend:** HTML + JavaScript + [Tailwind CSS](https://tailwindcss.com)
-- **Banco de dados:** SQLite local via [Cloudflare D1](https://developers.cloudflare.com/d1/) (wrangler)
-- **Autenticação:** JWT (jose) + PBKDF2 hash de senha
-- **Runtime local:** [Wrangler](https://developers.cloudflare.com/workers/wrangler/) (incluído no projeto)
+> **Dados salvos em:** `.wrangler/state/v3/d1/` (criado automaticamente)  
+> Os dados **não somem** ao fechar o servidor.
 
 ---
 
-## ❓ Perguntas Frequentes
+## 🛠️ Tecnologias
 
-**O sistema fica lento na primeira vez?**  
-Sim, o `npm install` baixa as dependências (~100 MB). Nas próximas vezes é instantâneo.
-
-**Preciso instalar mais alguma coisa além do Node.js?**  
-Não. O Wrangler (servidor local) já vem incluído nas dependências do projeto.
-
-**O banco de dados some quando fecho o servidor?**  
-Não. Os dados ficam salvos em `.wrangler/state/v3/d1/` dentro da pasta do projeto.
-
-**Posso usar em rede local (outros computadores)?**  
-Sim. O servidor já está configurado para aceitar conexões externas (`--ip 0.0.0.0`).  
-Acesse pelo IP da máquina: `http://SEU-IP:3000`
+- **Backend:** Hono (TypeScript) rodando via Cloudflare Wrangler
+- **Frontend:** JavaScript + Tailwind CSS (CDN)
+- **Banco de dados:** SQLite local (via Wrangler D1)
+- **Auth:** JWT + PBKDF2
 
 ---
 
-## 📞 Suporte
-
-Sistema desenvolvido para **HRD Consultoria T&D**.  
 © 2026 HRD Consultoria. Todos os direitos reservados.
