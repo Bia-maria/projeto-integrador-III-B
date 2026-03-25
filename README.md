@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # HRD Consultoria T&D
 
 Sistema web de Treinamento e Desenvolvimento com gestão de cursos, aulas e emissão de certificados digitais.
@@ -120,3 +121,5 @@ hrd-consultoria/
 ---
 
 © 2026 HRD Consultoria. Todos os direitos reservados.
+
+# projeto-integrador-III-B
