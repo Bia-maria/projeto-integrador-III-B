@@ -4,21 +4,6 @@ Sistema web de Treinamento e Desenvolvimento com gestão de cursos, aulas e emis
 
 ---
 
-## 🎓 Projeto Acadêmico
-
-Disciplina: Projeto Integrador III-B  
-Curso: Análise e Desenvolvimento de Sistemas  
-Instituição: Pontifícia Universidade Católica de Goiás  
-
-Alunos:
-- Beatriz de Freitas Ribeiro Silva  
-- Eduardo Sales Sousa  
-
-Professor:
-- Thalles Santos  
-
----
-
 ## 🔗 Links do Projeto
 
 - 🎨 Protótipo no Figma:  
@@ -80,19 +65,12 @@ http://localhost:3000
 
 ## 🗂️ Estrutura do Projeto
 hrd-consultoria/
-
 ├── src/
-
 ├── public/static/
-
 ├── migrations/
-
 ├── wrangler.jsonc
-
 ├── start.bat
-
 ├── start.sh
-
 └── package.json
 
 ---
