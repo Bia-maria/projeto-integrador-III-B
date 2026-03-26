@@ -80,12 +80,19 @@ http://localhost:3000
 
 ## 🗂️ Estrutura do Projeto
 hrd-consultoria/
+
 ├── src/
+
 ├── public/static/
+
 ├── migrations/
+
 ├── wrangler.jsonc
+
 ├── start.bat
+
 ├── start.sh
+
 └── package.json
 
 ---
