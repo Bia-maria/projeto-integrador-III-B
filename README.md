@@ -38,7 +38,7 @@ Acesse https://nodejs.org → clique em **LTS** → instale normalmente.
 
 Abra no navegador:
 
-http://localhost:3000
+http://localhost:5173/
 
 ---
 
