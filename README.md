@@ -6,8 +6,8 @@ Sistema web de Treinamento e Desenvolvimento com gestão de cursos, aulas e emis
 
 ## 🔗 Links do Projeto
 
-- 🎨 Protótipo no Figma:  
-https://www.figma.com/design/ebH1eN8tvy0vQamnFNiWFh/Sistema-para-Consultoria-de-RH
+- 🎨 Protótipo Excalidraw:
+- https://excalidraw.com/#room=3b2785a81ec11bee2437,3Kzw-zomG3xc2OqPFnbkPg
 
 - 📋 Gestão do Projeto (Trello):  
 https://trello.com/invite/b/69c561eb5b6bccc4102faca5/ATTIb63f70aa3c03e37eb02902b96df156d13B6737CB/projeto-integrador-iii-b
